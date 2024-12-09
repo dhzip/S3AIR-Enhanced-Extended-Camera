@@ -1,0 +1,150 @@
+//# address-hook(0x01c0a8) end(0x01c11c)
+function void UpdateCameraPositionX()
+{
+	u16 oldCamPos = u16[A1]
+	D4.u16 = oldCamPos
+
+#if !STANDALONE
+	// This check is effectively dead code
+	if (unused.teleport_active != 0)
+		return
+#endif
+
+	u16 px = char.position.x.u16
+#if STANDALONE
+	// Handle additional camera offset
+	//  -> This was only introduced to smooth the camera while using the FBZ monkey bars
+	if (globalCameraOffsetX != 0)
+	{
+		if (abs(globalCameraOffsetX) >= 8)
+			globalCameraOffsetX += clamp(-globalCameraOffsetX, -2, 2)
+		else
+			globalCameraOffsetX += clamp(-globalCameraOffsetX, -1, 1)
+		px += globalCameraOffsetX
+	}
+#endif
+
+	s16 limitLeft = s16[A2]		// "move_area.left"
+	s16 limitRight = s16[A2+2]	// "move_area.right"
+
+	// Handle temporary camera lock right e.g. after spindash
+	//  u16[A5]   = camera.locktime.player*
+	//  u16[A5+2] = posbackup.offset.player*
+	if (u16[A5] > 0)
+	{
+		u16[A5] -= 0x100
+		D1 = (u8[A5] * 4) + 4
+		D0.u8 = u16[A5+2] - D1.u8
+		px = u16[A6 + D0.u8] & 0x7fff
+	}
+
+#if STANDALONE
+	if (global.game_mode != 0x08)	// Disable in rolling demo, as it breaks MGZ
+	{
+		if (global.level_started <= 0 || global.stage_type != 0)	// First is relevant e.g. for AIZ 1 Sonic intro
+		{
+			currentCameraPanning = 0
+		}
+		else
+		{
+			s16 diff = 0
+
+			s16 camSpeed
+
+			// AIZ flip bridges set groundspeed to zero
+			if (char.flags & char.flag.IN_AIR && char.state != char.state.KNUX_FALLING)
+				camSpeed = abs(char.velocity.x) / 0x20
+			else
+				camSpeed = abs(char.groundspeed) / 0x20
+
+			// The character can't touch the edge of the screen
+			s16 speedLimit = camSpeed < 0xa9 ? camSpeed : 0xa9
+
+			if (u8[0xffffb000 + 0x2e] & (control_flag.DISABLE_INTERACTION | control_flag.DISABLE_WALLS | control_flag.DISABLE_UPDATE) || u8[0xffffb000 + 0x3c] != 0) && (char.state != char.state.HANGING)		// Reset to normal in certain situations when the player has no direct control, or when on a convex surface // New: includes when inputs are disabled, except on AIZ ziplines
+			{
+				diff = clamp(-currentCameraPanning, -2, 2)
+			}
+			else if (char.state == char.state.SPINDASH || char.spindash == 0x80)
+			{
+				speedLimit = 0x50
+				diff = (char.flags & char.flag.FACING_LEFT) ? -4 : 4
+			}
+			else
+			{
+				if (abs(char.velocity.x) < 0x600) || (char.flags & char.flag.IN_AIR && char.velocity.y < 0 && char.jumping == 0 && char.state != char.state.KNUX_FLYCLIMB) || ((char.state == char.state.TAILS_FLYDOWN && char.character != CHARACTER_KNUCKLES) || char.state == char.state.TAILS_FLYUP || char.state == char.state.TAILS_FLYTIRED) || (abs(char.groundspeed) >= 0x1000 && char.flags & char.flag.UNDERWATER) // Reset to normal if you hit a wall, run off a ramp, fly as Tails, roll underwater at high speeds. Why is Knuckles marked TAILS_FLYDOWN while gliding?
+				{
+					speedLimit = 0x99
+					diff = clamp(-currentCameraPanning, -2, 2)
+				}
+				else
+				{
+					if (char.flags & char.flag.FACING_LEFT)
+					{
+						// Is the character running on the ceiling?
+						if (char.rotation != 0x80)
+						{
+							diff = (char.groundspeed <= -0x600 || currentCameraPanning > 1) ? -2 : 0
+							if (char.double_jump_state == 1 && char.state == char.state.KNUX_FLYCLIMB)
+							{
+								// Left-facing glide doesn't move the camera without this
+								diff = (char.velocity.x <= -0x600 || currentCameraPanning > 1) ? -2 : 0
+							}
+						}
+						else
+							diff = (char.groundspeed <= -0x600 || currentCameraPanning < -1) ? 2 : 0
+					}
+					else
+					{
+						if (char.rotation != 0x80)
+							diff = (char.groundspeed >= 0x600 || currentCameraPanning < -1) ? 2 : 0
+						else
+							diff = (char.groundspeed >= 0x600 || currentCameraPanning > 1) ? -2 : 0
+					}
+				}
+			}
+			currentCameraPanning = clamp(currentCameraPanning + diff, -speedLimit, speedLimit)
+
+			px += currentCameraPanning
+		}
+	}
+
+	u16 currentScreenPivot = oldCamPos + getScreenWidth() / 2 - 8		// A bit left of the actual screen center
+	s16 diffx = px - currentScreenPivot
+
+	// Standalone's version of this code does the limit checks in each frame, even if there was no camera movement
+	//  -> Needed e.g. to prevent a possible camera jump in AIZ 2 boss
+	s16 movex = 0
+	if (abs(diffx) > 8)
+	{
+		diffx += (diffx < 0) ? 8 : -8
+		s16 range = 24
+
+		movex = clamp(diffx, -range, range)
+	}
+
+	limitRight = max(limitLeft, limitRight - (getScreenWidth() - 320))
+	px = clamp(s16(oldCamPos + movex), limitLeft, limitRight)
+
+#else
+
+	s16 diffx = px - (oldCamPos + getScreenWidth() / 2 - 16)
+	if (diffx < 0)
+	{
+		diffx = max(diffx, -24)
+		px = max(s16(oldCamPos + diffx), limitLeft)
+	}
+	else if (diffx >= 16)
+	{
+		diffx = min(diffx - 16, 24)
+		px = min(s16(oldCamPos + diffx), limitRight)
+	}
+	else
+	{
+		u16[A4] = 0		// No change at all
+		return
+	}
+#endif
+
+	u16[A1] = px	// Update camera position
+	u16[A4] = s16(px - oldCamPos) << 8
+}
