@@ -13,3 +13,7 @@ Credits to Eukaryot for the original camera script.
 
 1.0.2
 - The spindash and peelout no longer trigger the extended camera.
+
+1.1.0
+- Hydrocity water slides will reset the camera.
+- Marble Garden spinning tops control the camera differently.

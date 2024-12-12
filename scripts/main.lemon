@@ -59,16 +59,31 @@ function void UpdateCameraPositionX()
 
 			s16 speedLimit = camSpeed < 0xa9 ? camSpeed : 0xa9 // The camera can't outrun the player
 
-			if (u8[0xffffb000 + 0x2e] & (control_flag.DISABLE_INTERACTION | control_flag.DISABLE_WALLS | control_flag.DISABLE_UPDATE) || u8[0xffffb000 + 0x3c] != 0) && (char.state != char.state.HANGING)		// Reset to normal in certain situations when the player has no direct control, or when on a convex surface // New: includes when inputs are disabled, except on AIZ ziplines
+			if (u8[0xffffb000 + 0x2e] & (control_flag.DISABLE_INTERACTION | control_flag.DISABLE_WALLS) || u8[0xffffb000 + 0x3c] != 0)		// Reset to normal in certain situations when the player has no direct control, or when on a convex surface
 			{
 				diff = clamp(-currentCameraPanning, -2, 2)
 			}
 			else
 			{
-				if (abs(char.velocity.x) < 0x600) || (char.flags & char.flag.IN_AIR && char.velocity.y < 0 && char.jumping == 0 && char.state != char.state.KNUX_FLYCLIMB) || ((char.state == char.state.TAILS_FLYDOWN && char.character != CHARACTER_KNUCKLES) || char.state == char.state.TAILS_FLYUP || char.state == char.state.TAILS_FLYTIRED) || (abs(char.groundspeed) >= 0x1000 && char.flags & char.flag.UNDERWATER) // Reset to normal if you hit a wall, run off a ramp, fly as Tails, roll underwater at high speeds. Why is Knuckles marked TAILS_FLYDOWN while gliding?
+				// Reset to normal if you hit a wall, run off a ramp, fly as Tails, roll fast underwater. Checks:
+				//  - AIZ ziplines, FBZ ceiling bars
+				//  - HCZ water slides, corkscrew slides, hand launchers
+				//  - MGZ spinning top check
+				//  - Knuckles' glide exception
+				if (char.groundspeed == 0) || (char.state == char.state.HANGING) || (global.zone == 0x01 && (char.state == char.state.FALLING_PANIC || u8[0xffffb000 + 0x2e] & (control_flag.DISABLE_UPDATE) && char.velocity.y !=0)) || !(u8[0xffffb000 + 0x2e] & (control_flag.DISABLE_UPDATE)) && ((abs(char.velocity.x) < 0x600) || (char.flags & char.flag.IN_AIR && char.velocity.y < 0 && char.jumping == 0 && char.state != char.state.KNUX_FLYCLIMB)) || ((char.state == char.state.TAILS_FLYDOWN && char.character != CHARACTER_KNUCKLES) || char.state == char.state.TAILS_FLYUP || char.state == char.state.TAILS_FLYTIRED) || (abs(char.groundspeed) >= 0x1000 && char.flags & char.flag.UNDERWATER)
 				{
 					speedLimit = 0xa9 // This prevents the camera from snapping back to center
 					diff = clamp(-currentCameraPanning, -2, 2)
+				}
+				// MGZ spinning top
+				else if (u8[0xffffb000 + 0x2e] & (control_flag.DISABLE_UPDATE) && global.zone == 0x02)
+				{
+					if (char.velocity.x > 0x60)
+						diff = (char.velocity.x > 0 || currentCameraPanning < -1) ? 2 : 0
+					else if (char.velocity.x < -0x60)
+						diff = (char.velocity.x < 0 || currentCameraPanning > 1) ? -2 : 0
+					else
+						diff = clamp(-currentCameraPanning, -2, 2)
 				}
 				else
 				{
@@ -96,6 +111,7 @@ function void UpdateCameraPositionX()
 				}
 			}
 			currentCameraPanning = clamp(currentCameraPanning + diff, -speedLimit, speedLimit)
+			// System.writeDisplayLine(stringformat("%x : %x", abs(char.groundspeed), abs(char.velocity.x)))
 
 			px += currentCameraPanning
 		}
