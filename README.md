@@ -4,3 +4,9 @@ A script mod for Sonic 3 A.I.R. that makes the extended camera more dynamic. The
 ![](https://github.com/dhzip/S3AIR-Enhanced-Extended-Camera/blob/master/demo.gif)
 
 Credits to Eukaryot for the original camera script.
+
+# Changelog
+
+1.0.1
+- Fix speed limit value.
+- Update mod.json.

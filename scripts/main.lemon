@@ -57,8 +57,7 @@ function void UpdateCameraPositionX()
 			else
 				camSpeed = abs(char.groundspeed) / 0x20
 
-			// The character can't touch the edge of the screen
-			s16 speedLimit = camSpeed < 0xa9 ? camSpeed : 0xa9
+			s16 speedLimit = camSpeed < 0xa9 ? camSpeed : 0xa9 // The camera can't outrun the player
 
 			if (u8[0xffffb000 + 0x2e] & (control_flag.DISABLE_INTERACTION | control_flag.DISABLE_WALLS | control_flag.DISABLE_UPDATE) || u8[0xffffb000 + 0x3c] != 0) && (char.state != char.state.HANGING)		// Reset to normal in certain situations when the player has no direct control, or when on a convex surface // New: includes when inputs are disabled, except on AIZ ziplines
 			{
@@ -73,7 +72,7 @@ function void UpdateCameraPositionX()
 			{
 				if (abs(char.velocity.x) < 0x600) || (char.flags & char.flag.IN_AIR && char.velocity.y < 0 && char.jumping == 0 && char.state != char.state.KNUX_FLYCLIMB) || ((char.state == char.state.TAILS_FLYDOWN && char.character != CHARACTER_KNUCKLES) || char.state == char.state.TAILS_FLYUP || char.state == char.state.TAILS_FLYTIRED) || (abs(char.groundspeed) >= 0x1000 && char.flags & char.flag.UNDERWATER) // Reset to normal if you hit a wall, run off a ramp, fly as Tails, roll underwater at high speeds. Why is Knuckles marked TAILS_FLYDOWN while gliding?
 				{
-					speedLimit = 0x99
+					speedLimit = 0xa9 // This prevents the camera from snapping back to center
 					diff = clamp(-currentCameraPanning, -2, 2)
 				}
 				else
@@ -83,12 +82,11 @@ function void UpdateCameraPositionX()
 						// Is the character running on the ceiling?
 						if (char.rotation != 0x80)
 						{
-							diff = (char.groundspeed <= -0x600 || currentCameraPanning > 1) ? -2 : 0
+							// Left-facing glide doesn't move the camera without this
 							if (char.double_jump_state == 1 && char.state == char.state.KNUX_FLYCLIMB)
-							{
-								// Left-facing glide doesn't move the camera without this
 								diff = (char.velocity.x <= -0x600 || currentCameraPanning > 1) ? -2 : 0
-							}
+							else
+								diff = (char.groundspeed <= -0x600 || currentCameraPanning > 1) ? -2 : 0
 						}
 						else
 							diff = (char.groundspeed <= -0x600 || currentCameraPanning < -1) ? 2 : 0
