@@ -63,11 +63,6 @@ function void UpdateCameraPositionX()
 			{
 				diff = clamp(-currentCameraPanning, -2, 2)
 			}
-			else if (char.state == char.state.SPINDASH || char.spindash == 0x80)
-			{
-				speedLimit = 0x50
-				diff = (char.flags & char.flag.FACING_LEFT) ? -4 : 4
-			}
 			else
 			{
 				if (abs(char.velocity.x) < 0x600) || (char.flags & char.flag.IN_AIR && char.velocity.y < 0 && char.jumping == 0 && char.state != char.state.KNUX_FLYCLIMB) || ((char.state == char.state.TAILS_FLYDOWN && char.character != CHARACTER_KNUCKLES) || char.state == char.state.TAILS_FLYUP || char.state == char.state.TAILS_FLYTIRED) || (abs(char.groundspeed) >= 0x1000 && char.flags & char.flag.UNDERWATER) // Reset to normal if you hit a wall, run off a ramp, fly as Tails, roll underwater at high speeds. Why is Knuckles marked TAILS_FLYDOWN while gliding?

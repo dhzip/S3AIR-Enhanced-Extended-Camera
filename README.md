@@ -10,3 +10,6 @@ Credits to Eukaryot for the original camera script.
 1.0.1
 - Fix speed limit value.
 - Update mod.json.
+
+1.0.2
+- The spindash and peelout no longer trigger the extended camera.
